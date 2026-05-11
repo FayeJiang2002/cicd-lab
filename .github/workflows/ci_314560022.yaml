@@ -1,0 +1,68 @@
+name: CI_314560022
+
+# 任意 branch push 或建立 PR 都會觸發
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+
+# action-junit-report 需要寫入 checks/PR 評論的權限
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  ci:
+    name: TypeScript / Prettier / Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 要求項目 1: TypeScript typecheck
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      # 要求項目 2: Prettier check
+      - name: Prettier check
+        run: npm run format:check
+
+      # 要求項目 3: 執行測試,並輸出 JUnit XML 給後續報告步驟使用
+      - name: Run tests (Vitest, JUnit reporter)
+        run: |
+          mkdir -p reports
+          npm test -- \
+            --reporter=verbose \
+            --reporter=junit \
+            --outputFile.junit=reports/vitest-junit.xml
+
+      # 將測試結果顯示在 GitHub Actions 結果頁面 (Job Summary + Checks)
+      - name: Publish test report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: 'reports/vitest-junit.xml'
+          check_name: 'Vitest Test Report'
+          require_tests: true
+          fail_on_failure: true
+
+      # 同時 upload artifact,點進 run 還能下載原始 XML
+      - name: Upload JUnit report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-junit-report
+          path: reports/
+          if-no-files-found: error
