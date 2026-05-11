@@ -31,19 +31,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 要求項目 1: TypeScript typecheck
+      # TypeScript typecheck
       - name: TypeScript typecheck
         run: npm run typecheck
 
-      # 要求項目 2: Prettier check
+      # Prettier check
       - name: Prettier check
         run: npm run format:check
 
-      # 額外項目: ESLint 靜態分析
+      # ESLint 靜態分析
       - name: ESLint
         run: npm run lint
 
-      # 要求項目 3: 執行測試,並輸出 JUnit XML 給後續報告步驟使用
+      # 執行測試,並輸出 JUnit XML 給後續報告步驟使用
       - name: Run tests (Vitest, JUnit reporter)
         run: |
           mkdir -p reports
