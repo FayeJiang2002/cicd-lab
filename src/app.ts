@@ -14,8 +14,9 @@ export function buildApp(options: FastifyServerOptions = {}) {
   });
 
   app.get('/health', async () => {
+    const status: number = 'ok';
     return {
-      status: 'ok'
+      status
     };
   });
 
