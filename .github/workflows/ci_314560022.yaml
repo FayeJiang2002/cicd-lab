@@ -7,8 +7,11 @@ on:
       - '**'
   pull_request:
 
+# action-junit-report 需要寫入 checks/PR 評論的權限
 permissions:
   contents: read
+  checks: write
+  pull-requests: write
 
 jobs:
   ci:
@@ -36,6 +39,10 @@ jobs:
       - name: Prettier check
         run: npm run format:check
 
+      # 額外項目: ESLint 靜態分析
+      - name: ESLint
+        run: npm run lint
+
       # 要求項目 3: 執行測試,並輸出 JUnit XML 給後續報告步驟使用
       - name: Run tests (Vitest, JUnit reporter)
         run: |
@@ -45,63 +52,15 @@ jobs:
             --reporter=junit \
             --outputFile.junit=reports/vitest-junit.xml
 
-      # 將測試結果以純文字表格寫入 Job Summary (避免第三方 action 帶 emoji)
-      - name: Publish test summary (plain text)
+      # 將測試結果顯示在 GitHub Actions 結果頁面 (Job Summary + Checks)
+      - name: Publish test report
         if: always()
-        env:
-          JUNIT_XML: reports/vitest-junit.xml
-        run: |
-          node <<'NODE' >> "$GITHUB_STEP_SUMMARY"
-          const fs = require('fs');
-          const path = process.env.JUNIT_XML;
-          if (!fs.existsSync(path)) {
-            console.log('## Vitest Test Report');
-            console.log('');
-            console.log('No JUnit XML produced at ' + path);
-            process.exit(0);
-          }
-          const xml = fs.readFileSync(path, 'utf8');
-          const root = xml.match(/<testsuites[^>]*>/);
-          if (!root) {
-            console.log('## Vitest Test Report');
-            console.log('');
-            console.log('Could not parse ' + path);
-            process.exit(0);
-          }
-          const r = root[0];
-          const tests = +(r.match(/tests="(\d+)"/)?.[1] ?? 0);
-          const failures = +(r.match(/failures="(\d+)"/)?.[1] ?? 0);
-          const errors = +(r.match(/errors="(\d+)"/)?.[1] ?? 0);
-          const skipped = [...xml.matchAll(/skipped="(\d+)"/g)]
-            .reduce((a, [, n]) => a + Number(n), 0);
-          const passed = tests - failures - errors - skipped;
-          const out = [
-            '## Vitest Test Report',
-            '',
-            '| Metric  | Count |',
-            '| ------- | ----- |',
-            `| Tests   | ${tests} |`,
-            `| Passed  | ${passed} |`,
-            `| Failed  | ${failures} |`,
-            `| Errors  | ${errors} |`,
-            `| Skipped | ${skipped} |`
-          ];
-          if (failures > 0 || errors > 0) {
-            out.push('', '### Failing tests', '');
-            const re = /<testcase[^>]*name="([^"]+)"[^>]*>(?:[\s\S]*?)<(failure|error)/g;
-            let m;
-            while ((m = re.exec(xml)) !== null) {
-              const name = m[1]
-                .replace(/&gt;/g, '>')
-                .replace(/&lt;/g, '<')
-                .replace(/&amp;/g, '&')
-                .replace(/&quot;/g, '"')
-                .replace(/&apos;/g, "'");
-              out.push(`- ${name}`);
-            }
-          }
-          console.log(out.join('\n'));
-          NODE
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: 'reports/vitest-junit.xml'
+          check_name: 'Vitest Test Report'
+          require_tests: true
+          fail_on_failure: true
 
       # 同時 upload artifact,點進 run 還能下載原始 XML
       - name: Upload JUnit report artifact
