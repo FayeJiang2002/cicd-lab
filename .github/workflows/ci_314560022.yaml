@@ -54,7 +54,7 @@ jobs:
 
       # 將測試結果顯示在 GitHub Actions 結果頁面 (Job Summary + Checks)
       - name: Publish test report
-        if: always()
+        if: ${{ !cancelled() && hashFiles('reports/vitest-junit.xml') != '' }}
         uses: mikepenz/action-junit-report@v5
         with:
           report_paths: 'reports/vitest-junit.xml'
@@ -64,7 +64,7 @@ jobs:
 
       # 同時 upload artifact,點進 run 還能下載原始 XML
       - name: Upload JUnit report artifact
-        if: always()
+        if: ${{ !cancelled() && hashFiles('reports/vitest-junit.xml') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: vitest-junit-report
